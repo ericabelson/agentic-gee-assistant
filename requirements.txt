@@ -1,0 +1,14 @@
+# Core dependencies
+requests>=2.31.0
+google-api-python-client>=2.108.0
+
+# Earth Engine dependencies
+earthengine-api>=0.1.379
+google-cloud-storage>=2.13.0
+
+# Agent dependencies
+google-adk>=0.1.0  # For the Agent class used in agent.py 
+
+# Web server dependencies
+fastapi
+uvicorn[standard]
