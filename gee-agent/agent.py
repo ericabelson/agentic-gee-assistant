@@ -62,40 +62,72 @@ def search_gee_catalog(query: str):
     catalog = fetch_gee_catalog()
     if not catalog: # Handle case where catalog fetch failed
         logger.warning("Search failed: GEE catalog is empty or could not be fetched.")
-        return []
+        return [{"error": "Catalog unavailable"}]
+
+    # --- Start Keyword Extraction ---
+    logger.info(f"Received search query: '{query}'")
+    # Simple keyword extraction: split by space, lowercase, remove short words/common words
+    # More sophisticated methods (NLTK, spaCy) could be used here.
+    query_lower = query.lower()
+    potential_keywords = query_lower.split()
+    # Example stop words - expand this list as needed
+    stop_words = {"for", "the", "a", "an", "in", "to", "of", "and", "is", "show", "me", "find", "data", "dataset", "datasets", "images", "imagery", "about", "with"}
+    keywords = [
+        word for word in potential_keywords
+        if len(word) > 2 and word not in stop_words
+    ]
+    if not keywords:
+        logger.warning(f"Could not extract useful keywords from query: '{query}'")
+        return [{"info": f"No useful keywords extracted from your query to search the catalog."}]
+    logger.info(f"Extracted keywords for search: {keywords}")
+    # --- End Keyword Extraction ---
 
     results = []
-    query_lower = query.lower()
-    logger.info(f"Searching through {len(catalog)} fetched datasets for query: '{query}'")
+    # Use the extracted keywords for searching
+    search_terms = keywords # Already lowercased during extraction
+    logger.info(f"Searching through {len(catalog)} fetched datasets for keywords: {search_terms}")
+
+    processed_ids = set() # Keep track of added dataset IDs to avoid duplicates
 
     for item in catalog:
-        # Search in title, description, and potentially keywords if available
+        # Search in title, description
         title = item.get("title", "")
         description = item.get("description", "")
-        # Use 'sample_code_url' as the link to the dataset page from the community catalog
-        url = item.get("sample_code_url", "")
+        # url = item.get("sample_code_url", "") # Keep url retrieval for later
 
-        # Combine text for searching
-        searchable_text = f"{title} {description}".lower()
+        # Combine text for searching (already lowercased during extraction)
+        title_lower = title.lower()
+        description_lower = description.lower()
 
-        # Simple search: check if query is in the combined text
-        # More sophisticated matching (like checking all terms) could be added here
-        if query_lower in searchable_text:
-             # Ensure we have the essential fields, especially the URL for the next step
-            if item.get("id") and title and url:
+        # Check if ANY extracted keyword matches title or description
+        match_found = False
+        for term in search_terms:
+            if term in title_lower or term in description_lower:
+                match_found = True
+                break # Found a match for this item with one keyword
+
+        if match_found:
+            dataset_id = item.get("id")
+            url = item.get("sample_code_url", "") # Get URL here
+            # Ensure we have essential fields and haven't added this dataset already
+            if dataset_id and title and url and dataset_id not in processed_ids:
                 results.append({
-                    "id": item.get("id"),
+                    "id": dataset_id,
                     "title": title,
-                    "url": url # Add the URL field
+                    "url": url
                 })
+                processed_ids.add(dataset_id) # Mark as added
                 if len(results) >= 5: # Limit results
                     logger.info("Reached maximum result limit (5).")
                     break
-            else:
-                # Log if a potential match is skipped due to missing essential info
-                logger.debug(f"Skipping dataset due to missing id, title, or url: {item.get('id') or 'N/A'}")
+            # else: # Optional logging for skipped items
+            #    logger.debug(f"Skipping dataset due to missing info or duplicate: {dataset_id or 'N/A'}")
 
-    logger.info(f"Found {len(results)} datasets matching query '{query}'.")
+
+    logger.info(f"Found {len(results)} datasets matching keywords {search_terms} derived from query '{query}'.")
+    if not results:
+         # Provide more informative message if nothing found
+         return [{"info": f"No datasets found matching keywords extracted from your query: {', '.join(search_terms)}"}]
     return results
 
 # --- New Tool ---
@@ -138,13 +170,14 @@ def fetch_webpage_text(url: str) -> str:
 gee_search_agent = Agent(
     name="gee_search_agent",
     model="gemini-2.0-flash",
-    description="Searches the Google Earth Engine catalog for datasets based on user needs.",
+    description="Passes user requests to the GEE catalog search tool, which handles keyword extraction and searching.", # Slightly updated description
     instruction="""
         You are an agent that helps users find relevant datasets in Google Earth Engine.
-        Given a user's research topic or description, use the search_gee_catalog tool to find up to 5 relevant datasets.
-        Return the list of datasets to the next agent.
-    """,
-    tools=[search_gee_catalog],
+        Take the user's research topic or description exactly as provided and pass it directly as the 'query' argument to the 'search_gee_catalog' tool.
+        The tool itself will handle keyword extraction and searching.
+        Return the results from the tool.
+    """, # Simplified instruction
+    tools=[search_gee_catalog], # Tool signature remains search_gee_catalog(query: str)
 )
 
 gee_dataset_details_agent = Agent(
