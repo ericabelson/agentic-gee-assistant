@@ -288,9 +288,11 @@ gee_keyword_matcher_agent = Agent(
         6. Return ONLY a JSON list of the selected keyword strings. For example: ["ndvi", "sentinel-2", "precipitation", "california"].
         7. If no relevant keywords are found in the list, return an empty list [].
         8. Do not add any keywords that are not present in the list obtained from the tool.
-        9. Return ONLY the JSON list of strings. Do not add explanations or introductory text.
+        9. Generate ONLY the JSON list of strings as text. Do not add explanations or introductory text.
+        10. **Crucially:** Take the raw text output you just generated (the JSON list string) and pass it *immediately* to the `clean_json_string` tool.
+        11. Return the dictionary result provided by the `clean_json_string` tool. This will be either `{"result": <list_of_keywords>}` or `{"error": <error_message>}`.
     """,
-    tools=[get_catalog_keywords], # Provide the tool to access the keywords
+    tools=[get_catalog_keywords, clean_json_string], # Add the cleaning tool
 )
 
 
@@ -349,25 +351,24 @@ root_agent = Agent(
         You are the primary coordinator for helping users find and understand GEE datasets.
         1. Start by asking the user to describe what they want to study, what kind of data they need, or the geographic area and time period they are interested in.
         2. Take the user's description and pass it as input to the `gee_keyword_matcher_agent`.
-        3. The matcher agent will return a raw string, which might contain a JSON list potentially wrapped in markdown.
-        4. Take the **raw string output** from `gee_keyword_matcher_agent` and pass it directly to the `clean_json_string` tool.
-        5. The `clean_json_string` tool will return a dictionary. Check if it contains an "error" key.
-        6. If the cleaning tool returns an error, or if the "result" field in its response is not a list or is an empty list, inform the user that no relevant keywords could be identified or processed for their query. Do not proceed further with the search.
-        7. If the cleaning tool returns a dictionary with a "result" key containing a valid, non-empty list of keywords, take this list and pass it to the `gee_search_agent`.
-        8. The search agent will use these keywords to search the catalog and return a list of potential datasets (each with 'id', 'title', 'url') or an info/error message.
-        9. If the search agent returns no results (or an info message indicating no datasets found), inform the user based on the keywords used.
-        10. If search results are found, iterate through the list (up to 5 results). For each dataset, take its 'url' and pass it to the `gee_dataset_details_agent`.
-        11. The details agent will return a JSON dictionary containing extracted metadata or an error message.
-        12. Compile the information received from the details agent for all datasets processed.
-        13. Present a final summary to the user. For each dataset found by the search agent, clearly list:
+        3. The `gee_keyword_matcher_agent` will process the request and return a dictionary, which should contain either a "result" key with a list of keywords or an "error" key.
+        4. Check the dictionary returned by `gee_keyword_matcher_agent`. If it contains an "error" key, or if the "result" key contains an empty list or is not a list, inform the user that no relevant keywords could be identified or processed for their query. Do not proceed further with the search.
+        5. If the dictionary contains a "result" key with a valid, non-empty list of keywords, extract this list.
+        6. Take the extracted list of keywords and pass it to the `gee_search_agent`.
+        7. The search agent will use these keywords to search the catalog and return a list of potential datasets (each with 'id', 'title', 'url') or an info/error message.
+        8. If the search agent returns no results (or an info message indicating no datasets found), inform the user based on the keywords used.
+        9. If search results are found, iterate through the list (up to 5 results). For each dataset, take its 'url' and pass it to the `gee_dataset_details_agent`.
+        10. The details agent will return a JSON dictionary containing extracted metadata or an error message.
+        11. Compile the information received from the details agent for all datasets processed.
+        12. Present a final summary to the user. For each dataset found by the search agent, clearly list:
             - Its title.
             - The extracted details (description, spatial/temporal resolution, coverage, update frequency, use case).
             - Explicitly mention if any specific detail was "Information not found".
             - If the details agent returned an error for a specific dataset (e.g., couldn't fetch URL), report that error.
-        14. Format the final output clearly and make it easy for a beginner to understand which datasets might be relevant to their initial request. Mention the keywords that were used for the search.
+        13. Format the final output clearly and make it easy for a beginner to understand which datasets might be relevant to their initial request. Mention the keywords that were used for the search.
     """,
     sub_agents=[gee_keyword_matcher_agent, gee_search_agent, gee_dataset_details_agent],
-    tools=[clean_json_string], # Add the cleaning tool
+    tools=[], # Root agent no longer needs the cleaning tool directly
 )
 
 # ==============================================================================
