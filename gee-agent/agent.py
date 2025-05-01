@@ -308,14 +308,14 @@ root_agent = Agent(
         8. The search agent will use these keywords to search the catalog and return a list of potential datasets (each with 'id', 'title', 'url') or an info/error message.
         9. If the search agent returns no results (or an info message indicating no datasets found), inform the user based on the keywords used.
         10. If search results are found, iterate through the list (up to 5 results). For each dataset, take its 'url' and pass it to the `gee_dataset_details_agent`.
-        9. The details agent will return a JSON dictionary containing extracted metadata or an error message.
-        10. Compile the information received from the details agent for all datasets processed.
-        11. Present a final summary to the user. For each dataset found by the search agent, clearly list:
+        11. The details agent will return a JSON dictionary containing extracted metadata or an error message.
+        12. Compile the information received from the details agent for all datasets processed.
+        13. Present a final summary to the user. For each dataset found by the search agent, clearly list:
             - Its title.
             - The extracted details (description, spatial/temporal resolution, coverage, update frequency, use case).
             - Explicitly mention if any specific detail was "Information not found".
             - If the details agent returned an error for a specific dataset (e.g., couldn't fetch URL), report that error.
-        12. Format the final output clearly and make it easy for a beginner to understand which datasets might be relevant to their initial request. Mention the keywords that were used for the search.
+        14. Format the final output clearly and make it easy for a beginner to understand which datasets might be relevant to their initial request. Mention the keywords that were used for the search.
     """,
     # --- Start Modification ---
     sub_agents=[gee_keyword_matcher_agent, gee_search_agent, gee_dataset_details_agent], # Add matcher agent
