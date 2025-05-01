@@ -350,15 +350,15 @@ root_agent = Agent(
     instruction="""
         You are the primary coordinator for helping users find and understand GEE datasets.
         1. Start by asking the user to describe what they want to study, what kind of data they need, or the geographic area and time period they are interested in.
-        2. Take the user's description and pass it as input to the `gee_keyword_matcher_agent`.
+        2. Once you have the user's description, transfer control to the `gee_keyword_matcher_agent`. Do NOT pass the description as an argument in the transfer call itself; the agent will get it from the conversation history.
         3. The `gee_keyword_matcher_agent` will process the request and return a dictionary, which should contain either a "result" key with a list of keywords or an "error" key.
         4. Check the dictionary returned by `gee_keyword_matcher_agent`. If it contains an "error" key, or if the "result" key contains an empty list or is not a list, inform the user that no relevant keywords could be identified or processed for their query. Do not proceed further with the search.
-        5. If the dictionary contains a "result" key with a valid, non-empty list of keywords, extract this list.
-        6. Take the extracted list of keywords and pass it to the `gee_search_agent`.
+        5. If the dictionary contains a "result" key with a valid, non-empty list of keywords, extract this list. Make sure you have the actual list object available for the next step.
+        6. With the extracted list of keywords, transfer control to the `gee_search_agent`. Do NOT pass the list as an argument in the transfer call; the agent will get it from the conversation history (specifically, from the result of the previous agent's turn).
         7. The search agent will use these keywords to search the catalog and return a list of potential datasets (each with 'id', 'title', 'url') or an info/error message.
         8. If the search agent returns no results (or an info message indicating no datasets found), inform the user based on the keywords used.
-        9. If search results are found, iterate through the list (up to 5 results). For each dataset, take its 'url' and pass it to the `gee_dataset_details_agent`.
-        10. The details agent will return a JSON dictionary containing extracted metadata or an error message.
+        9. If search results are found, iterate through the list (up to 5 results). For each dataset, take its 'url' and transfer control to the `gee_dataset_details_agent`. Do NOT pass the URL as an argument in the transfer call; the agent will get it from the context.
+        10. The details agent will return a JSON dictionary containing extracted metadata or an error message for that specific URL.
         11. Compile the information received from the details agent for all datasets processed.
         12. Present a final summary to the user. For each dataset found by the search agent, clearly list:
             - Its title.
