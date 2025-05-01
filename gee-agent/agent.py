@@ -3,8 +3,6 @@ import requests
 import os
 import json
 import logging
-import re
-import json # Already imported, but ensure it's present
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import uvicorn # Although not directly used in code, good practice to have if running via script
@@ -19,47 +17,6 @@ logger = logging.getLogger(__name__)
 
 CATALOG_URL = "https://raw.githubusercontent.com/samapriya/awesome-gee-community-datasets/master/community_datasets.json"
 CATALOG_CACHE = None
-CATALOG_KEYWORDS_CACHE = None # Add near line 18
-
-
-def extract_catalog_keywords(catalog_data: list) -> list[str]:
-    """
-    Extracts potential keywords from titles and descriptions in the catalog data.
-
-    Args:
-        catalog_data: The list of dataset dictionaries from the fetched catalog.
-
-    Returns:
-        A sorted list of unique potential keywords (lowercase, > 2 chars, not numeric).
-    """
-    if not catalog_data:
-        return []
-
-    keywords = set()
-    logger.info(f"Extracting keywords from {len(catalog_data)} catalog items...")
-
-    for item in catalog_data:
-        text_to_process = []
-        title = item.get("title", "")
-        description = item.get("description", "")
-        if title:
-            text_to_process.append(title)
-        if description:
-            text_to_process.append(description)
-
-        full_text = " ".join(text_to_process).lower()
-        # Use regex to find words (alphanumeric sequences)
-        potential_words = re.findall(r'\b[a-z0-9]+\b', full_text)
-
-        for word in potential_words:
-            # Filter: length > 2 and not purely numeric
-            if len(word) > 2 and not word.isdigit():
-                keywords.add(word)
-
-    sorted_keywords = sorted(list(keywords))
-    logger.info(f"Extracted {len(sorted_keywords)} unique potential keywords.")
-    return sorted_keywords
-
 
 def fetch_gee_catalog():
     """Fetches the GEE community catalog JSON from GitHub."""
@@ -77,14 +34,9 @@ def fetch_gee_catalog():
                      CATALOG_CACHE = CATALOG_CACHE['datasets']
                  else:
                      logger.error("Fetched catalog is not in the expected list format.")
-                     CATALOG_CACHE = []
+                     CATALOG_CACHE = [] # Set to empty list on format error
+                     # Or raise an error: raise ValueError("Fetched catalog is not a list")
             logger.info(f"Successfully fetched and cached {len(CATALOG_CACHE)} datasets.")
-
-            # Extract and cache keywords immediately after fetching
-            global CATALOG_KEYWORDS_CACHE
-            CATALOG_KEYWORDS_CACHE = extract_catalog_keywords(CATALOG_CACHE)
-            # --- End Modification ---
-
         except requests.exceptions.RequestException as e:
             logger.error(f"Error fetching GEE catalog: {e}")
             # Fallback or error handling: return empty list or raise exception
@@ -95,27 +47,12 @@ def fetch_gee_catalog():
             return []
     return CATALOG_CACHE
 
-
-def get_catalog_keywords() -> list[str]:
-    """Returns the cached list of extracted keywords from the GEE catalog."""
-    global CATALOG_KEYWORDS_CACHE
-    if CATALOG_KEYWORDS_CACHE is None:
-        logger.warning("Catalog keywords requested before they were extracted.")
-        # Attempt to fetch and extract if not done yet
-        fetch_gee_catalog() # This will trigger extraction if needed
-        if CATALOG_KEYWORDS_CACHE is None: # Check again if fetch/extract failed
-             return ["Error: Keywords not available"]
-    # Return a copy to prevent modification? For now, return directly.
-    return CATALOG_KEYWORDS_CACHE
-
-
-# Change signature from query: str to matched_keywords: list[str]
-def search_gee_catalog(matched_keywords: list[str]):
+def search_gee_catalog(query: str):
     """
-    Searches the fetched GEE catalog based on a list of matched keywords.
+    Searches the fetched GEE catalog based on a query string.
 
     Args:
-        matched_keywords: A list of keywords identified as relevant to the user's query.
+        query: The search term provided by the user or agent.
 
     Returns:
         A list of dictionaries, each containing 'id', 'title', and 'url'
@@ -127,23 +64,29 @@ def search_gee_catalog(matched_keywords: list[str]):
         logger.warning("Search failed: GEE catalog is empty or could not be fetched.")
         return [{"error": "Catalog unavailable"}]
 
-    # --- Remove Keyword Extraction Block ---
-    # --- End Removal ---
-
-    # --- Use matched_keywords directly ---
-    if not matched_keywords or not isinstance(matched_keywords, list) or not all(isinstance(k, str) for k in matched_keywords):
-         logger.warning(f"Invalid or empty matched_keywords received: {matched_keywords}")
-         # Return specific info message
-         return [{"info": "No valid keywords were provided for searching the catalog."}]
-
-    # Ensure keywords are lowercase (matcher agent should ideally provide them lowercase)
-    search_terms = [k.lower() for k in matched_keywords]
-    logger.info(f"Searching through {len(catalog)} fetched datasets for matched keywords: {search_terms}")
-    # --- End Use matched_keywords ---
-
+    # --- Start Keyword Extraction ---
+    logger.info(f"Received search query: '{query}'")
+    # Simple keyword extraction: split by space, lowercase, remove short words/common words
+    # More sophisticated methods (NLTK, spaCy) could be used here.
+    query_lower = query.lower()
+    potential_keywords = query_lower.split()
+    # Stop words removed as per request
+    keywords = [
+        word for word in potential_keywords
+        if len(word) > 2 # Removed stop word check: and word not in stop_words
+    ]
+    if not keywords:
+        logger.warning(f"Could not extract useful keywords from query: '{query}'")
+        return [{"info": f"No useful keywords extracted from your query to search the catalog."}]
+    logger.info(f"Extracted keywords for search: {keywords}")
+    # --- End Keyword Extraction ---
 
     results = []
-    processed_ids = set()
+    # Use the extracted keywords for searching
+    search_terms = keywords # Already lowercased during extraction
+    logger.info(f"Searching through {len(catalog)} fetched datasets for keywords: {search_terms}")
+
+    processed_ids = set() # Keep track of added dataset IDs to avoid duplicates
 
     for item in catalog:
         # Search in title, description
@@ -163,7 +106,6 @@ def search_gee_catalog(matched_keywords: list[str]):
                 break # Found a match for this item with one keyword
 
         if match_found:
-            # ... (rest of the result appending logic remains the same) ...
             dataset_id = item.get("id")
             url = item.get("sample_code_url", "") # Get URL here
             # Ensure we have essential fields and haven't added this dataset already
@@ -181,11 +123,10 @@ def search_gee_catalog(matched_keywords: list[str]):
             #    logger.debug(f"Skipping dataset due to missing info or duplicate: {dataset_id or 'N/A'}")
 
 
-    # Update final log message
-    logger.info(f"Found {len(results)} datasets matching keywords {search_terms}.")
+    logger.info(f"Found {len(results)} datasets matching keywords {search_terms} derived from query '{query}'.")
     if not results:
-         # Update info message
-         return [{"info": f"No datasets found matching the provided keywords: {', '.join(search_terms)}"}]
+         # Provide more informative message if nothing found
+         return [{"info": f"No datasets found matching keywords extracted from your query: {', '.join(search_terms)}"}]
     return results
 
 # --- New Tool ---
@@ -221,102 +162,26 @@ def fetch_webpage_text(url: str) -> str:
         logger.error(f"An unexpected error occurred while fetching {url}: {e}")
         return f"Error: An unexpected error occurred while fetching {url}."
 
-# --- New Cleaning Tool ---
-def clean_json_string(raw_string: str) -> dict:
-    """
-    Cleans potential markdown formatting from a string and parses it as JSON.
-
-    Args:
-        raw_string: The raw string output, potentially with markdown.
-
-    Returns:
-        A dictionary containing either:
-        - {"result": <parsed_json_object>} if successful.
-        - {"error": <error_message>} if cleaning or parsing fails.
-    """
-    if not isinstance(raw_string, str):
-        return {"error": "Input must be a string."}
-
-    logger.info(f"Attempting to clean raw string: '{raw_string[:100]}...'") # Log snippet
-    # Remove leading/trailing whitespace
-    cleaned_string = raw_string.strip()
-
-    # Remove markdown code fences (```json ... ``` or ``` ... ```)
-    # This regex handles optional 'json' language identifier and potential newlines
-    match = re.match(r'^```(?:json)?\s*(.*?)\s*```$', cleaned_string, re.DOTALL | re.IGNORECASE)
-    if match:
-        cleaned_string = match.group(1).strip()
-        logger.info("Removed markdown fences.")
-    else:
-        # Handle case where there might be just ``` at start/end without language id
-        if cleaned_string.startswith('```') and cleaned_string.endswith('```'):
-             cleaned_string = cleaned_string[3:-3].strip()
-             logger.info("Removed basic markdown fences.")
-
-    logger.info(f"Cleaned string for JSON parsing: '{cleaned_string[:100]}...'")
-
-    try:
-        # Attempt to parse the cleaned string as JSON
-        parsed_json = json.loads(cleaned_string)
-        logger.info("Successfully parsed cleaned string as JSON.")
-        return {"result": parsed_json}
-    except json.JSONDecodeError as e:
-        logger.error(f"Failed to parse cleaned string as JSON: {e}. String was: '{cleaned_string}'")
-        return {"error": f"Failed to parse the cleaned response as JSON: {e}"}
-    except Exception as e:
-        logger.error(f"An unexpected error occurred during JSON cleaning/parsing: {e}")
-        return {"error": f"An unexpected error occurred during JSON cleaning/parsing: {e}"}
-# --- End New Cleaning Tool ---
-
-
 # ==============================================================================
 # Sub-agents
 # ==============================================================================
 
-gee_keyword_matcher_agent = Agent(
-    name="gee_keyword_matcher_agent",
-    model="gemini-2.5-pro-preview-03-25", # Use the stronger model
-    description="Matches a user's query against a pre-defined list of GEE catalog keywords.",
-    instruction="""
-        You are an expert at understanding user needs related to geospatial data and matching them to relevant technical keywords.
-        Your task is to identify the most relevant keywords from a specific list, based on the user's query.
-        1. Use the `get_catalog_keywords` tool to retrieve the list of valid keywords extracted from the GEE community catalog. Handle potential errors if the list is unavailable.
-        2. Analyze the user's query provided to you.
-        3. Compare the user's query against the retrieved list of valid keywords.
-        4. Identify and select the keywords from the list that best represent the concepts, topics, or data types mentioned in the user's query.
-        5. Prioritize keywords that seem most specific and relevant.
-        6. Return ONLY a JSON list of the selected keyword strings. For example: ["ndvi", "sentinel-2", "precipitation", "california"].
-        7. If no relevant keywords are found in the list, return an empty list [].
-        8. Do not add any keywords that are not present in the list obtained from the tool.
-        9. Generate ONLY the JSON list of strings as text. Do not add explanations or introductory text.
-        10. **Crucially:** Take the raw text output you just generated (the JSON list string) and pass it *immediately* to the `clean_json_string` tool.
-        11. Return the dictionary result provided by the `clean_json_string` tool. This will be either `{"result": <list_of_keywords>}` or `{"error": <error_message>}`.
-    """,
-    tools=[get_catalog_keywords, clean_json_string], # Add the cleaning tool
-)
-
-
 gee_search_agent = Agent(
     name="gee_search_agent",
-    model="gemini-2.5-pro-preview-03-25", # Use the stronger model
-    # --- Start Modification ---
-    description="Searches the GEE catalog using a pre-defined list of relevant keywords.",
+    model="gemini-2.0-flash",
+    description="Passes user requests to the GEE catalog search tool, which handles keyword extraction and searching.", # Slightly updated description
     instruction="""
-        You are an agent that searches the GEE community catalog.
-        You will receive a list of relevant keywords that have already been matched to the user's request.
-        1. Take the provided list of keywords exactly as given.
-        2. Pass this list directly as the 'matched_keywords' argument to the 'search_gee_catalog' tool.
-        3. Return the results from the tool (which will be a list of found datasets or an info/error message).
-    """,
-    # The tool function name is the same, but its signature changed.
-    # The framework should handle passing the list input if the root agent orchestrates correctly.
-    tools=[search_gee_catalog],
-    # --- End Modification ---
+        You are an agent that helps users find relevant datasets in Google Earth Engine.
+        Take the user's research topic or description exactly as provided and pass it directly as the 'query' argument to the 'search_gee_catalog' tool.
+        The tool itself will handle keyword extraction and searching.
+        Return the results from the tool.
+    """, # Simplified instruction
+    tools=[search_gee_catalog], # Tool signature remains search_gee_catalog(query: str)
 )
 
 gee_dataset_details_agent = Agent(
     name="gee_dataset_details_agent",
-    model="gemini-2.5-pro-preview-03-25", # Use the stronger model
+    model="gemini-2.0-flash", # Or consider a more powerful model if needed for analysis
     description="Fetches and analyzes GEE dataset pages to extract key metadata.",
     instruction="""
         You are an agent specialized in extracting information from Google Earth Engine dataset web pages.
@@ -341,34 +206,29 @@ gee_dataset_details_agent = Agent(
 # ==============================================================================
 
 root_agent = Agent(
-    name="gee_discovery_agent",
-    model="gemini-2.5-pro-preview-03-25", # Use the stronger model
+    name="gee_discovery_agent", # Keep the name for identification unless asked to change
+    model="gemini-2.0-flash",
     description="""
         Coordinates the process of helping users discover and understand Google Earth Engine datasets.
-        Asks the user for their needs, coordinates keyword matching, search, and details agents, and presents the findings.
-    """, # Updated description
+        Asks the user for their needs, coordinates search and details agents, and presents the findings.
+    """,
     instruction="""
         You are the primary coordinator for helping users find and understand GEE datasets.
         1. Start by asking the user to describe what they want to study, what kind of data they need, or the geographic area and time period they are interested in.
-        2. Once you have the user's description, transfer control to the `gee_keyword_matcher_agent`. Do NOT pass the description as an argument in the transfer call itself; the agent will get it from the conversation history.
-        3. The `gee_keyword_matcher_agent` will process the request and return a dictionary, which should contain either a "result" key with a list of keywords or an "error" key.
-        4. Check the dictionary returned by `gee_keyword_matcher_agent`. If it contains an "error" key, or if the "result" key contains an empty list or is not a list, inform the user that no relevant keywords could be identified or processed for their query. Do not proceed further with the search.
-        5. If the dictionary contains a "result" key with a valid, non-empty list of keywords, extract this list. Make sure you have the actual list object available for the next step.
-        6. With the extracted list of keywords, transfer control to the `gee_search_agent`. Do NOT pass the list as an argument in the transfer call; the agent will get it from the conversation history (specifically, from the result of the previous agent's turn).
-        7. The search agent will use these keywords to search the catalog and return a list of potential datasets (each with 'id', 'title', 'url') or an info/error message.
-        8. If the search agent returns no results (or an info message indicating no datasets found), inform the user based on the keywords used.
-        9. If search results are found, iterate through the list (up to 5 results). For each dataset, take its 'url' and transfer control to the `gee_dataset_details_agent`. Do NOT pass the URL as an argument in the transfer call; the agent will get it from the context.
-        10. The details agent will return a JSON dictionary containing extracted metadata or an error message for that specific URL.
-        11. Compile the information received from the details agent for all datasets processed.
-        12. Present a final summary to the user. For each dataset found by the search agent, clearly list:
+        2. Take the user's description and pass it as a query to the `gee_search_agent`.
+        3. The search agent will return a list of potential datasets, each with an 'id', 'title', and 'url'.
+        4. If the search agent returns no results, inform the user.
+        5. If results are found, iterate through the list (up to 5 results). For each dataset, take its 'url' and pass it to the `gee_dataset_details_agent`.
+        6. The details agent will return a JSON dictionary containing extracted metadata (description, resolutions, coverage, etc.) or an error message.
+        7. Compile the information received from the details agent for all datasets processed.
+        8. Present a final summary to the user. For each dataset, clearly list:
             - Its title.
             - The extracted details (description, spatial/temporal resolution, coverage, update frequency, use case).
             - Explicitly mention if any specific detail was "Information not found".
             - If the details agent returned an error for a specific dataset (e.g., couldn't fetch URL), report that error.
-        13. Format the final output clearly and make it easy for a beginner to understand which datasets might be relevant to their initial request. Mention the keywords that were used for the search.
+        9. Format the final output clearly and make it easy for a beginner to understand which datasets might be relevant to their initial request.
     """,
-    sub_agents=[gee_keyword_matcher_agent, gee_search_agent, gee_dataset_details_agent],
-    tools=[], # Root agent no longer needs the cleaning tool directly
+    sub_agents=[gee_search_agent, gee_dataset_details_agent], # Updated sub_agents
 )
 
 # ==============================================================================
