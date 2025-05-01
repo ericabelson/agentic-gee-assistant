@@ -3,7 +3,8 @@ import requests
 import os
 import json
 import logging
-import re # Add this import
+import re
+import json # Already imported, but ensure it's present
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import uvicorn # Although not directly used in code, good practice to have if running via script
@@ -220,6 +221,54 @@ def fetch_webpage_text(url: str) -> str:
         logger.error(f"An unexpected error occurred while fetching {url}: {e}")
         return f"Error: An unexpected error occurred while fetching {url}."
 
+# --- New Cleaning Tool ---
+def clean_json_string(raw_string: str) -> dict:
+    """
+    Cleans potential markdown formatting from a string and parses it as JSON.
+
+    Args:
+        raw_string: The raw string output, potentially with markdown.
+
+    Returns:
+        A dictionary containing either:
+        - {"result": <parsed_json_object>} if successful.
+        - {"error": <error_message>} if cleaning or parsing fails.
+    """
+    if not isinstance(raw_string, str):
+        return {"error": "Input must be a string."}
+
+    logger.info(f"Attempting to clean raw string: '{raw_string[:100]}...'") # Log snippet
+    # Remove leading/trailing whitespace
+    cleaned_string = raw_string.strip()
+
+    # Remove markdown code fences (```json ... ``` or ``` ... ```)
+    # This regex handles optional 'json' language identifier and potential newlines
+    match = re.match(r'^```(?:json)?\s*(.*?)\s*```$', cleaned_string, re.DOTALL | re.IGNORECASE)
+    if match:
+        cleaned_string = match.group(1).strip()
+        logger.info("Removed markdown fences.")
+    else:
+        # Handle case where there might be just ``` at start/end without language id
+        if cleaned_string.startswith('```') and cleaned_string.endswith('```'):
+             cleaned_string = cleaned_string[3:-3].strip()
+             logger.info("Removed basic markdown fences.")
+
+    logger.info(f"Cleaned string for JSON parsing: '{cleaned_string[:100]}...'")
+
+    try:
+        # Attempt to parse the cleaned string as JSON
+        parsed_json = json.loads(cleaned_string)
+        logger.info("Successfully parsed cleaned string as JSON.")
+        return {"result": parsed_json}
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse cleaned string as JSON: {e}. String was: '{cleaned_string}'")
+        return {"error": f"Failed to parse the cleaned response as JSON: {e}"}
+    except Exception as e:
+        logger.error(f"An unexpected error occurred during JSON cleaning/parsing: {e}")
+        return {"error": f"An unexpected error occurred during JSON cleaning/parsing: {e}"}
+# --- End New Cleaning Tool ---
+
+
 # ==============================================================================
 # Sub-agents
 # ==============================================================================
@@ -239,7 +288,7 @@ gee_keyword_matcher_agent = Agent(
         6. Return ONLY a JSON list of the selected keyword strings. For example: ["ndvi", "sentinel-2", "precipitation", "california"].
         7. If no relevant keywords are found in the list, return an empty list [].
         8. Do not add any keywords that are not present in the list obtained from the tool.
-        9. Do not add explanations, introductory text, or markdown formatting (like ```json). Just output the raw JSON list itself.
+        9. Return ONLY the JSON list of strings. Do not add explanations or introductory text.
     """,
     tools=[get_catalog_keywords], # Provide the tool to access the keywords
 )
@@ -300,11 +349,11 @@ root_agent = Agent(
         You are the primary coordinator for helping users find and understand GEE datasets.
         1. Start by asking the user to describe what they want to study, what kind of data they need, or the geographic area and time period they are interested in.
         2. Take the user's description and pass it as input to the `gee_keyword_matcher_agent`.
-        3. The matcher agent will return a string potentially containing a JSON list of relevant keywords. It might incorrectly include markdown formatting (like ```json ... ```).
-        4. **Clean the response:** Remove any leading/trailing whitespace and markdown code fences (like ```json ... ``` or ``` ... ```) from the string returned by the matcher agent to isolate the raw JSON list.
-        5. **Validate the result:** Attempt to parse the cleaned string as a JSON list.
-        6. If the parsing fails, or the result is an empty list or an error message from the matcher, inform the user that no relevant keywords could be identified or processed for their query. Do not proceed further with the search.
-        7. If a valid, non-empty list of keywords is obtained after cleaning and parsing, take this list and pass it to the `gee_search_agent`.
+        3. The matcher agent will return a raw string, which might contain a JSON list potentially wrapped in markdown.
+        4. Take the **raw string output** from `gee_keyword_matcher_agent` and pass it directly to the `clean_json_string` tool.
+        5. The `clean_json_string` tool will return a dictionary. Check if it contains an "error" key.
+        6. If the cleaning tool returns an error, or if the "result" field in its response is not a list or is an empty list, inform the user that no relevant keywords could be identified or processed for their query. Do not proceed further with the search.
+        7. If the cleaning tool returns a dictionary with a "result" key containing a valid, non-empty list of keywords, take this list and pass it to the `gee_search_agent`.
         8. The search agent will use these keywords to search the catalog and return a list of potential datasets (each with 'id', 'title', 'url') or an info/error message.
         9. If the search agent returns no results (or an info message indicating no datasets found), inform the user based on the keywords used.
         10. If search results are found, iterate through the list (up to 5 results). For each dataset, take its 'url' and pass it to the `gee_dataset_details_agent`.
@@ -317,9 +366,8 @@ root_agent = Agent(
             - If the details agent returned an error for a specific dataset (e.g., couldn't fetch URL), report that error.
         14. Format the final output clearly and make it easy for a beginner to understand which datasets might be relevant to their initial request. Mention the keywords that were used for the search.
     """,
-    # --- Start Modification ---
-    sub_agents=[gee_keyword_matcher_agent, gee_search_agent, gee_dataset_details_agent], # Add matcher agent
-    # --- End Modification ---
+    sub_agents=[gee_keyword_matcher_agent, gee_search_agent, gee_dataset_details_agent],
+    tools=[clean_json_string], # Add the cleaning tool
 )
 
 # ==============================================================================
