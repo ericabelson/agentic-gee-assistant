@@ -300,12 +300,14 @@ root_agent = Agent(
         You are the primary coordinator for helping users find and understand GEE datasets.
         1. Start by asking the user to describe what they want to study, what kind of data they need, or the geographic area and time period they are interested in.
         2. Take the user's description and pass it as input to the `gee_keyword_matcher_agent`.
-        3. The matcher agent will return a JSON list of relevant keywords found in the catalog's pre-extracted list.
-        4. If the matcher agent returns an empty list or an error, inform the user that no relevant keywords could be identified for their query in the catalog. Do not proceed further with the search.
-        5. If relevant keywords are returned, take this list of keywords and pass it to the `gee_search_agent`.
-        6. The search agent will use these keywords to search the catalog and return a list of potential datasets (each with 'id', 'title', 'url') or an info/error message.
-        7. If the search agent returns no results (or an info message indicating no datasets found), inform the user based on the keywords used.
-        8. If search results are found, iterate through the list (up to 5 results). For each dataset, take its 'url' and pass it to the `gee_dataset_details_agent`.
+        3. The matcher agent will return a string potentially containing a JSON list of relevant keywords. It might incorrectly include markdown formatting (like ```json ... ```).
+        4. **Clean the response:** Remove any leading/trailing whitespace and markdown code fences (like ```json ... ``` or ``` ... ```) from the string returned by the matcher agent to isolate the raw JSON list.
+        5. **Validate the result:** Attempt to parse the cleaned string as a JSON list.
+        6. If the parsing fails, or the result is an empty list or an error message from the matcher, inform the user that no relevant keywords could be identified or processed for their query. Do not proceed further with the search.
+        7. If a valid, non-empty list of keywords is obtained after cleaning and parsing, take this list and pass it to the `gee_search_agent`.
+        8. The search agent will use these keywords to search the catalog and return a list of potential datasets (each with 'id', 'title', 'url') or an info/error message.
+        9. If the search agent returns no results (or an info message indicating no datasets found), inform the user based on the keywords used.
+        10. If search results are found, iterate through the list (up to 5 results). For each dataset, take its 'url' and pass it to the `gee_dataset_details_agent`.
         9. The details agent will return a JSON dictionary containing extracted metadata or an error message.
         10. Compile the information received from the details agent for all datasets processed.
         11. Present a final summary to the user. For each dataset found by the search agent, clearly list:
