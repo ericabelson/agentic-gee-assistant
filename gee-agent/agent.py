@@ -78,7 +78,7 @@ def search_gee_catalog(query: str):
     if not keywords:
         logger.warning(f"Could not extract useful keywords from query: '{query}'")
         return [{"info": f"No useful keywords extracted from your query to search the catalog."}]
-    logger.info(f"Extracted keywords for search: {keywords}")
+    logger.info(f"Extracted keywords for search (no stop words): {keywords}") # Updated log message
     # --- End Keyword Extraction ---
 
     results = []
