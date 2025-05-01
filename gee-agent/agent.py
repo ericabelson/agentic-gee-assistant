@@ -239,7 +239,7 @@ gee_keyword_matcher_agent = Agent(
         6. Return ONLY a JSON list of the selected keyword strings. For example: ["ndvi", "sentinel-2", "precipitation", "california"].
         7. If no relevant keywords are found in the list, return an empty list [].
         8. Do not add any keywords that are not present in the list obtained from the tool.
-        9. Do not add explanations or introductory text, just the JSON list of strings.
+        9. Do not add explanations, introductory text, or markdown formatting (like ```json). Just output the raw JSON list itself.
     """,
     tools=[get_catalog_keywords], # Provide the tool to access the keywords
 )
