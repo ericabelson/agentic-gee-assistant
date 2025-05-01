@@ -70,11 +70,10 @@ def search_gee_catalog(query: str):
     # More sophisticated methods (NLTK, spaCy) could be used here.
     query_lower = query.lower()
     potential_keywords = query_lower.split()
-    # Example stop words - expand this list as needed
-    stop_words = {"for", "the", "a", "an", "in", "to", "of", "and", "is", "show", "me", "find", "data", "dataset", "datasets", "images", "imagery", "about", "with"}
+    # Stop words removed as per request
     keywords = [
         word for word in potential_keywords
-        if len(word) > 2 and word not in stop_words
+        if len(word) > 2 # Removed stop word check: and word not in stop_words
     ]
     if not keywords:
         logger.warning(f"Could not extract useful keywords from query: '{query}'")
