@@ -275,7 +275,7 @@ def clean_json_string(raw_string: str) -> dict:
 
 gee_keyword_matcher_agent = Agent(
     name="gee_keyword_matcher_agent",
-    model="gemini/gemini-2.5-pro-preview-03-25", # Use the stronger model
+    model="gemini-2.5-pro-preview-03-25", # Use the stronger model
     description="Matches a user's query against a pre-defined list of GEE catalog keywords.",
     instruction="""
         You are an expert at understanding user needs related to geospatial data and matching them to relevant technical keywords.
@@ -298,7 +298,7 @@ gee_keyword_matcher_agent = Agent(
 
 gee_search_agent = Agent(
     name="gee_search_agent",
-    model="gemini/gemini-2.5-pro-preview-03-25", # Use the stronger model
+    model="gemini-2.5-pro-preview-03-25", # Use the stronger model
     # --- Start Modification ---
     description="Searches the GEE catalog using a pre-defined list of relevant keywords.",
     instruction="""
@@ -316,7 +316,7 @@ gee_search_agent = Agent(
 
 gee_dataset_details_agent = Agent(
     name="gee_dataset_details_agent",
-    model="gemini/gemini-2.5-pro-preview-03-25", # Use the stronger model
+    model="gemini-2.5-pro-preview-03-25", # Use the stronger model
     description="Fetches and analyzes GEE dataset pages to extract key metadata.",
     instruction="""
         You are an agent specialized in extracting information from Google Earth Engine dataset web pages.
@@ -342,7 +342,7 @@ gee_dataset_details_agent = Agent(
 
 root_agent = Agent(
     name="gee_discovery_agent",
-    model="gemini/gemini-2.5-pro-preview-03-25", # Use the stronger model
+    model="gemini-2.5-pro-preview-03-25", # Use the stronger model
     description="""
         Coordinates the process of helping users discover and understand Google Earth Engine datasets.
         Asks the user for their needs, coordinates keyword matching, search, and details agents, and presents the findings.
