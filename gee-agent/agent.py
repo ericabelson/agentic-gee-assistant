@@ -76,9 +76,14 @@ def fetch_gee_catalog():
                      CATALOG_CACHE = CATALOG_CACHE['datasets']
                  else:
                      logger.error("Fetched catalog is not in the expected list format.")
-                     CATALOG_CACHE = [] # Set to empty list on format error
-                     # Or raise an error: raise ValueError("Fetched catalog is not a list")
+                     CATALOG_CACHE = []
             logger.info(f"Successfully fetched and cached {len(CATALOG_CACHE)} datasets.")
+
+            # Extract and cache keywords immediately after fetching
+            global CATALOG_KEYWORDS_CACHE
+            CATALOG_KEYWORDS_CACHE = extract_catalog_keywords(CATALOG_CACHE)
+            # --- End Modification ---
+
         except requests.exceptions.RequestException as e:
             logger.error(f"Error fetching GEE catalog: {e}")
             # Fallback or error handling: return empty list or raise exception
@@ -109,7 +114,7 @@ def search_gee_catalog(matched_keywords: list[str]):
     Searches the fetched GEE catalog based on a list of matched keywords.
 
     Args:
-        query: The search term provided by the user or agent.
+        matched_keywords: A list of keywords identified as relevant to the user's query.
 
     Returns:
         A list of dictionaries, each containing 'id', 'title', and 'url'
