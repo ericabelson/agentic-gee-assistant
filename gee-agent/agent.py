@@ -7,16 +7,19 @@ import requests
 
 CATALOG_URL = "https://raw.githubusercontent.com/samapriya/awesome-gee-community-datasets/master/community_datasets.json"
 
+
+def search_gee_catalog(query: str) -> str:
+    """Searches the GEE catalog online based on a query string."""
+    search_url = f"https://developers.google.com/s/results/earth-engine/datasets?q={query}"
+    response = requests.get(search_url)
+    return str(response.content)
+
+
 def fetch_gee_catalog():
     """Fetches the GEE community catalog JSON from GitHub."""
     response = requests.get(CATALOG_URL, timeout=30)
     CATALOG_CACHE = response.json()
     return CATALOG_CACHE
-
-
-def search_gee_catalog(query: str):
-    """Searches the GEE catalog online based on a query string."""
-    return None
 
 
 def fetch_webpage_text(url: str) -> str:
@@ -33,8 +36,8 @@ def fetch_webpage_text(url: str) -> str:
 # ==============================================================================
 
 gee_search_agent = Agent(
-    name="gee-search-agent",
-    model="gemini-2.0-flash",
+    name="gee_search_agent",
+    model="gemini-2.5-pro-preview-05-06",
     description="Passes user requests to the GEE catalog search tool, which handles keyword extraction and searching.", # Slightly updated description
     instruction="""
         You are an agent that helps users find relevant datasets in Google Earth Engine.
@@ -72,8 +75,8 @@ gee_search_agent = Agent(
 # ==============================================================================
 
 root_agent = Agent(
-    name="gee-discovery-agent",
-    model="gemini-2.0-flash",
+    name="gee_agent",
+    model="gemini-2.5-pro-preview-05-06",
     description="""
         Coordinates the process of helping users discover and understand Google Earth Engine datasets.
         Asks the user for their needs, coordinates search and details agents, and presents the findings.
