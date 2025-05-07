@@ -1,4 +1,6 @@
 from google.adk.agents import Agent
+from google.adk.tools import agent_tool
+from google.adk.tools import google_search
 import requests
 
 # ==============================================================================
@@ -38,14 +40,21 @@ def fetch_webpage_text(url: str) -> str:
 gee_search_agent = Agent(
     name="gee_search_agent",
     model="gemini-2.5-pro-preview-05-06",
-    description="Passes user requests to the GEE catalog search tool, which handles keyword extraction and searching.", # Slightly updated description
+    description="Passes user requests to the Google Earth Engine catalog search tool.",
     instruction="""
         You are an agent that helps users find relevant datasets in Google Earth Engine.
-        Take the user's research topic or description exactly as provided and pass it directly as the 'query' argument to the 'search_gee_catalog' tool.
-        The tool itself will handle keyword extraction and searching.
-        Return the results from the tool.
     """,
     tools=[search_gee_catalog],
+)
+
+web_search_agent = Agent(
+    name="web_search_agent",
+    model="gemini-2.5-pro-preview-05-06",
+    description="Performs a web search to find additional information about maps and datasets",
+    instruction="""
+        You are an agent that helps users perform web searches to find additional information about maps and datasets in Google Earth Engine.
+    """,
+    tools=[google_search],
 )
 
 # gee_dataset_details_agent = Agent(
@@ -83,18 +92,8 @@ root_agent = Agent(
     """,
     instruction="""
         You are the primary coordinator for helping users find and understand GEE datasets.
-        1. Take the user's description and pass it as a query to the search agent.
-        2. The search agent will return a list of potential datasets, each with an 'id', 'title', and 'url'.
-        3. If the search agent returns no results, inform the user.
-        4. If results are found, iterate through the list (up to 5 results). For each dataset, take its 'url' and pass it to the `gee_dataset_details_agent`.
-        5. The details agent will return a JSON dictionary containing extracted metadata (description, resolutions, coverage, etc.) or an error message.
-        6. Compile the information received from the details agent for all datasets processed.
-        7. Present a final summary to the user. For each dataset, clearly list:
-            - Its title.
-            - The extracted details (description, spatial/temporal resolution, coverage, update frequency, use case).
-            - Explicitly mention if any specific detail was "Information not found".
-            - If the details agent returned an error for a specific dataset (e.g., couldn't fetch URL), report that error.
-        8. Format the final output clearly and make it easy for a beginner to understand which datasets might be relevant to their initial request.
+        Use the GEE search agent to search the Google Earth Engine catalog.
+        Use the web search agent to perform searches and find additional information.
     """,
-    sub_agents=[gee_search_agent],
+    tools=[agent_tool.AgentTool(agent=gee_search_agent), agent_tool.AgentTool(agent=web_search_agent)],
 )
