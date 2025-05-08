@@ -7,10 +7,8 @@ import requests
 # Tools
 # ==============================================================================
 
-# From https://github.com/samapriya/awesome-gee-community-datasets
-# and https://gee-community-catalog.org/
-
-CATALOG_URL = "https://raw.githubusercontent.com/samapriya/awesome-gee-community-datasets/master/community_datasets.json"
+# Google Earth Engine search
+# https://earthengine.google.com/
 
 def search_gee_catalog(query: str) -> str:
     """Searches the GEE catalog online based on a query string."""
@@ -19,15 +17,6 @@ def search_gee_catalog(query: str) -> str:
     )
     response = requests.get(search_url)
     return str(response.content)
-
-# Google Earth Engine search
-# https://earthengine.google.com/
-
-def fetch_gee_catalog():
-    """Fetches the GEE community catalog JSON from GitHub."""
-    response = requests.get(CATALOG_URL, timeout=30)
-    CATALOG_CACHE = response.json()
-    return CATALOG_CACHE
 
 # Fetch webpages with requests
 
@@ -41,6 +30,15 @@ def fetch_webpage_text(url: str) -> str:
     response = requests.get(url, timeout=5)
     return str(response.content)
 
+# From https://github.com/samapriya/awesome-gee-community-datasets
+# and https://gee-community-catalog.org/
+# CATALOG_URL = "https://raw.githubusercontent.com/samapriya/awesome-gee-community-datasets/master/community_datasets.json"
+# def fetch_gee_community_catalog():
+#     """Fetches the GEE community catalog JSON from GitHub."""
+#     response = requests.get(CATALOG_URL, timeout=30)
+#     CATALOG_CACHE = response.json()
+#     return CATALOG_CACHE
+
 
 # def fetch_via_mcp_server() -> str:
 #     """
@@ -48,11 +46,13 @@ def fetch_webpage_text(url: str) -> str:
 #     """
 #     # [Your code contribution here!]
 
+
 # def communicate_via_a2a() -> str:
 #     """
 #     Collaborates with AI Agents working with NASA-Openscapes
 #     """
 #     # [Your code contribution here!]
+
 
 # def gee_agent() -> str:
 #     """
