@@ -6,7 +6,7 @@ source agent framework.
 
 ## Scope
 
-This repo demonstrates how we can build a a team of AI agents to augment the
+This repo demonstrates how one can build a team of AI agents to augment the
 process of discovering and understanding Earth Engine datasets.
 
 Specifically, this system aims to:
