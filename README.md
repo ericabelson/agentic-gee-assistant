@@ -36,7 +36,7 @@ We used a multi-agent architecture in ADK:
 
 1. Clone the Repository:
 ```bash
-git clone https://github.com/ericabelson/agentic-gee-discovery-assistant.git
+git clone https://github.com/ericabelson/agentic-gee-assistant.git
 cd agentic-gee-assistant
 ```
 
@@ -45,7 +45,9 @@ cd agentic-gee-assistant
 pip install -r requirements.txt
 ```
 
-3. Authenticate with Earth Engine:
+3. Configure your [desired model settings](https://google.github.io/adk-docs/get-started/quickstart/#set-up-the-model) in the file `gee-agent/.env`.
+
+4. Authenticate with the [Earth Engine CLI](https://developers.google.com/earth-engine/guides/auth):
 ```bash
 earthengine authenticate
 ```
@@ -60,7 +62,7 @@ Navigate to http://localhost:8000 in your browser and select gee-discovery-agent
 
 #### Command Line:
 ```bash
-adk run gee-discovery-agent
+adk run gee-agent
 ```
 This starts an interactive chat session in your terminal.
 

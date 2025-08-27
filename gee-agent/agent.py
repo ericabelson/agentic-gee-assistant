@@ -66,7 +66,7 @@ def fetch_webpage_text(url: str) -> str:
 
 gee_search_agent = Agent(
     name="gee_search_agent",
-    model="gemini-2.5-pro-preview-05-06",
+    model="gemini-2.5-pro",
     description="""
     Passes user requests to the Google Earth Engine catalog search tool.
     """,
@@ -78,7 +78,7 @@ gee_search_agent = Agent(
 
 web_search_agent = Agent(
     name="web_search_agent",
-    model="gemini-2.5-pro-preview-05-06",
+    model="gemini-2.5-pro",
     description="Performs a web search to find additional information about maps and datasets",
     instruction="""
         You are an agent that helps users perform web searches to find additional information about maps and datasets in Google Earth Engine.
@@ -88,7 +88,7 @@ web_search_agent = Agent(
 
 web_fetch_agent = Agent(
     name="web_fetch_agent",
-    model="gemini-2.5-pro-preview-05-06",
+    model="gemini-2.5-pro",
     description="Gets the content of a webpage given a URL",
     instruction="""
         You are an agent that fetches information from a web page.
@@ -124,7 +124,7 @@ web_fetch_agent = Agent(
 
 root_agent = Agent(
     name="gee_agent",
-    model="gemini-2.5-pro-preview-05-06",
+    model="gemini-2.5-pro",
     tools=[
         agent_tool.AgentTool(agent=gee_search_agent),
         agent_tool.AgentTool(agent=web_search_agent),
