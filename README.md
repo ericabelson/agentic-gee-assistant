@@ -1,4 +1,4 @@
-﻿# Agent-Driven Exploration of Google Earth Engine
+﻿# Agent-Driven Exploration of Google Earth Engine Datasets
 
 This repository contains an example multi-agent system built using [Agent
 Development Kit (ADK)](https://google.github.io/adk-docs/), a free and open
@@ -72,4 +72,5 @@ This is a sample project built with Agent Development Kit. To join the ADK open
 source movement, visit the
 [Google ADK Python repository](https://github.com/google/adk-python)
 to get started, talk with other agent builders, or make your contribution!
+
 
